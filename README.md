@@ -192,3 +192,174 @@ System Flow
 لا يتم تغيير أسماء الفولدرات أو الملفات بدون الرجوع للـ Team Leader.
 
 كل جزء من النظام يجب أن يلتزم بنفس شكل البيانات (Data Format).
+# Medical Multi-Model AI Agent
+
+A production-ready Python backend for AI-powered X-ray analysis using multiple specialised models, a MySQL database, and a doctor-facing chatbot.
+
+---
+
+## System Flow
+
+```
+Doctor (UI)
+    │
+    ├── Upload X-Ray ──► AI Model Analysis (bone / lung / disease)
+    │                         │
+    │                    Generate Result
+    │                         │
+    │                    Save to Database ──► Medical Database
+    │
+    └── Ask Question ──► Chatbot Engine
+                              │
+                         ┌────┴─────────────────┐
+                         │                       │
+                    Ask Patient Info        General Question
+                         │                       │
+                    Query Database          Medical AI Model
+                         │                       │
+                    Prepare Response        Generate Answer
+                              │
+                         Display Result
+                              │
+                          End (Doctor)
+```
+
+---
+
+## Project Structure
+
+```
+medical-multi-model-agent/
+│
+├── backend/
+│   ├── routes.py           # API route registration
+│   ├── controller.py       # Request handling & validation
+│   └── model_dispatcher.py # Routes requests to correct AI model
+│
+├── models/
+│   ├── bone_model.py       # Bone X-ray analyser (stub)
+│   ├── lung_model.py       # Lung X-ray analyser (stub)
+│   └── disease_model.py    # Disease pattern detector (stub)
+│
+├── database/
+│   ├── db_connection.py    # MySQL connection & query helpers
+│   ├── schema.sql          # Table definitions + seed data
+│   └── queries.sql         # (optional) named query store
+│
+├── chatbot/
+│   ├── chatbot_engine.py   # Main chatbot orchestrator
+│   ├── query_builder.py    # NL → SQL converter
+│   └── prompt_handler.py   # (future) prompt templating
+│
+├── frontend/               # Doctor-facing UI (TBD)
+├── docs/                   # Architecture diagrams
+├── tests/                  # pytest test suite
+│
+├── app.py                  # Application entry point
+├── config.py               # Centralised configuration
+├── requirements.txt
+├── README.md
+└── .gitignore
+```
+
+---
+
+## Quick Start
+
+### 1. Clone & install
+```bash
+git clone <repo-url>
+cd medical-multi-model-agent
+pip install -r requirements.txt
+```
+
+### 2. Configure environment
+```bash
+cp .env.example .env
+# Edit .env with your MySQL credentials
+```
+
+Or set environment variables directly:
+```bash
+export DB_HOST=localhost
+export DB_USER=root
+export DB_PASSWORD=yourpassword
+export DB_NAME=medical_agent_db
+```
+
+### 3. Set up the database
+```bash
+mysql -u root -p < database/schema.sql
+```
+
+### 4. Run the application
+```bash
+python app.py
+```
+
+---
+
+## Configuration (`config.py`)
+
+| Key | Default | Description |
+|-----|---------|-------------|
+| `DB_HOST` | `localhost` | MySQL host |
+| `DB_USER` | `root` | MySQL username |
+| `DB_PASSWORD` | `""` | MySQL password |
+| `DB_NAME` | `medical_agent_db` | Target database |
+| `UPLOAD_FOLDER` | `uploads/` | X-ray upload directory |
+| `DEBUG` | `true` | Enable verbose logging |
+
+---
+
+## API Endpoints
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `POST` | `/api/analyse` | Upload X-ray + run AI analysis |
+| `GET` | `/api/patients` | List all patient records |
+| `GET` | `/api/patients/<id>` | Get single patient result |
+| `POST` | `/api/chatbot` | Send query to chatbot engine |
+
+---
+
+## Chatbot Examples
+
+```
+"Show all patients"
+"Show patient 7"
+"Show last result"
+"List lung patients"
+"Count patients"
+"What is pneumonia?"
+"What is a fracture?"
+```
+
+---
+
+## Integrating Real AI Models
+
+Each model in `models/` exposes a single `predict(image_path)` function.
+Replace the stub body with your actual inference code:
+
+```python
+# models/bone_model.py
+import tensorflow as tf
+
+_MODEL = tf.keras.models.load_model("weights/bone_model.h5")
+
+def predict(image_path: str) -> dict:
+    img = preprocess(image_path)
+    output = _MODEL.predict(img)
+    return {"finding": decode(output), "confidence": float(output.max())}
+```
+
+No changes required to dispatcher, controller, or database layers.
+
+---
+
+## Running Tests
+
+```bash
+pytest tests/ -v --cov=.
+```

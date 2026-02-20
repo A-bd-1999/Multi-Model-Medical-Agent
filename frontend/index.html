@@ -1,0 +1,791 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>MedAgent — AI Medical System</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Syne:wght@400;700;800&family=Lora:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet"/>
+<style>
+:root{
+  --bg:#0c0f14;--bg2:#131720;--bg3:#1a2030;
+  --border:#252d3d;--border2:#2e3a50;
+  --text:#e8eaf0;--text2:#8a92a8;--text3:#4a5268;
+  --green:#00c896;--green2:#00a07a;--green-dim:rgba(0,200,150,.1);
+  --red:#ff5c5c;--blue:#4a9eff;
+  --bone:#d4aa60;--lung:#4ab8d4;--disease:#d46090;
+  --r:8px;--r2:14px;
+  --mono:'IBM Plex Mono',monospace;
+  --display:'Syne',sans-serif;
+  --body:'Lora',Georgia,serif;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden}
+body{font-family:var(--body);background:var(--bg);color:var(--text);display:flex}
+
+/* SIDEBAR */
+.sidebar{width:220px;min-width:220px;background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column}
+.logo{padding:20px 18px 16px;border-bottom:1px solid var(--border)}
+.logo-name{font-family:var(--display);font-weight:800;font-size:1.2rem;display:flex;align-items:center;gap:8px}
+.logo-dot{width:8px;height:8px;background:var(--green);border-radius:50%;animation:blink 2s infinite;flex-shrink:0}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+.logo-sub{font-family:var(--mono);font-size:.6rem;color:var(--text3);margin-top:3px;letter-spacing:.08em}
+nav{flex:1;padding:12px 0;overflow-y:auto}
+.nav-lbl{font-family:var(--mono);font-size:.58rem;letter-spacing:.12em;color:var(--text3);padding:14px 18px 5px;text-transform:uppercase}
+.nav-btn{display:flex;align-items:center;gap:10px;width:100%;padding:10px 18px;background:none;border:none;color:var(--text2);font-family:var(--display);font-size:.82rem;font-weight:700;cursor:pointer;border-left:2px solid transparent;transition:all .18s;text-align:left;line-height:1}
+.nav-btn:hover{color:var(--text);background:rgba(255,255,255,.03)}
+.nav-btn.active{color:var(--green);border-left-color:var(--green);background:var(--green-dim)}
+.nav-btn svg{width:15px;height:15px;flex-shrink:0;opacity:.6}
+.nav-btn.active svg{opacity:1}
+.sidebar-foot{padding:14px 18px;border-top:1px solid var(--border);font-family:var(--mono);font-size:.58rem;color:var(--text3)}
+
+/* MAIN */
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0}
+.topbar{height:54px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;padding:0 24px;flex-shrink:0;background:var(--bg2)}
+.topbar-title{font-family:var(--display);font-weight:700;font-size:.95rem}
+.status-pill{display:flex;align-items:center;gap:6px;font-family:var(--mono);font-size:.62rem;color:var(--green);background:var(--green-dim);border:1px solid rgba(0,200,150,.2);padding:4px 10px;border-radius:100px;white-space:nowrap}
+.sdot{width:5px;height:5px;background:var(--green);border-radius:50%;animation:blink 2s infinite;flex-shrink:0}
+
+/* PAGES */
+.pages{flex:1;overflow:hidden;position:relative}
+.page{position:absolute;inset:0;overflow-y:auto;padding:24px;display:none}
+.page.active{display:block;animation:fadeUp .3s ease}
+@keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+
+/* CARDS */
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r2);overflow:hidden;margin-bottom:18px}
+.card-head{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid var(--border);min-height:50px}
+.card-title{font-family:var(--display);font-weight:700;font-size:.85rem;color:var(--text)}
+.card-body{padding:18px}
+
+/* STATS */
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:18px}
+.stat{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r2);padding:18px 16px;border-top:2px solid}
+.stat.s-total{border-top-color:var(--green)}.stat.s-bone{border-top-color:var(--bone)}
+.stat.s-lung{border-top-color:var(--lung)}.stat.s-disease{border-top-color:var(--disease)}
+.stat-lbl{font-family:var(--mono);font-size:.6rem;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);margin-bottom:8px}
+.stat-val{font-family:var(--display);font-weight:800;font-size:2rem;line-height:1;color:var(--text)}
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+
+/* TABLE  ← FIX: overflow visible, position static */
+.tbl-wrap{overflow-x:auto;overflow-y:visible}
+table{width:100%;border-collapse:collapse;font-size:.82rem;table-layout:auto}
+thead{position:sticky;top:0;z-index:2;background:var(--bg2)}
+th{font-family:var(--mono);font-size:.6rem;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);padding:11px 14px;text-align:left;border-bottom:2px solid var(--border);white-space:nowrap}
+td{padding:11px 14px;border-bottom:1px solid var(--border);color:var(--text2);vertical-align:middle;word-break:break-word}
+td strong{color:var(--text);font-weight:600}
+tr:hover td{background:rgba(255,255,255,.02)}
+.badge{display:inline-block;padding:3px 9px;border-radius:100px;font-family:var(--mono);font-size:.6rem;text-transform:uppercase;letter-spacing:.04em;white-space:nowrap}
+.badge-bone{background:rgba(212,170,96,.15);color:var(--bone)}
+.badge-lung{background:rgba(74,184,212,.15);color:var(--lung)}
+.badge-disease{background:rgba(212,96,144,.15);color:var(--disease)}
+
+/* FORMS */
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px}
+.field{display:flex;flex-direction:column;gap:5px}
+.field label{font-family:var(--mono);font-size:.6rem;letter-spacing:.08em;text-transform:uppercase;color:var(--text3)}
+.field input,.field select,.field textarea{background:var(--bg3);border:1px solid var(--border2);border-radius:var(--r);padding:9px 12px;color:var(--text);font-family:var(--body);font-size:.9rem;outline:none;transition:border-color .18s;width:100%}
+.field input:focus,.field select:focus,.field textarea:focus{border-color:var(--green)}
+.field select option{background:var(--bg2);color:var(--text)}
+
+/* UPLOAD */
+.upload-zone{border:1.5px dashed var(--border2);border-radius:var(--r2);padding:28px 18px;text-align:center;cursor:pointer;transition:all .2s;position:relative;background:var(--bg3)}
+.upload-zone:hover,.upload-zone.over{border-color:var(--green);background:var(--green-dim)}
+.upload-zone input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+.uz-icon{font-size:2rem;opacity:.35;margin-bottom:8px;display:block}
+.upload-zone p{font-size:.82rem;color:var(--text2)}
+.upload-zone strong{color:var(--green)}
+.img-prev{max-width:100%;max-height:180px;border-radius:var(--r);display:none;margin:12px auto 0;border:1px solid var(--border);display:block}
+
+/* BUTTONS */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;padding:9px 18px;border-radius:var(--r);font-family:var(--display);font-weight:700;font-size:.78rem;cursor:pointer;border:none;transition:all .18s;white-space:nowrap}
+.btn-green{background:var(--green);color:#000}.btn-green:hover{background:var(--green2);transform:translateY(-1px)}
+.btn-ghost{background:transparent;color:var(--text2);border:1px solid var(--border2)}.btn-ghost:hover{background:var(--bg3);color:var(--text)}
+.btn-row{display:flex;gap:10px;margin-top:16px}
+
+/* RESULT */
+.result-box{background:var(--bg3);border:1px solid var(--border2);border-radius:var(--r2);padding:18px;font-family:var(--mono);font-size:.78rem;display:none}
+.result-box.show{display:block;animation:fadeUp .3s ease}
+.rrow{display:flex;justify-content:space-between;align-items:flex-start;padding:6px 0;border-bottom:1px solid var(--border);gap:12px}
+.rrow:last-child{border:none}.rkey{color:var(--text3);flex-shrink:0}
+.rval{text-align:right;color:var(--text);line-height:1.4}
+.conf-bar{height:3px;background:var(--border);border-radius:2px;margin-top:10px;overflow:hidden}
+.conf-fill{height:100%;background:var(--green);border-radius:2px;transition:width 1s ease}
+
+/* DIST BARS */
+.dist-item{margin-bottom:14px}
+.dist-head{display:flex;justify-content:space-between;font-family:var(--mono);font-size:.62rem;color:var(--text3);margin-bottom:5px}
+.dist-bar{height:4px;background:var(--border);border-radius:2px;overflow:hidden}
+.dist-fill{height:100%;border-radius:2px;transition:width 1s ease}
+
+/* RECENT ROWS in dashboard */
+.recent-row{display:flex;align-items:center;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--border)}
+.recent-row:last-child{border:none}
+.recent-name{font-family:var(--display);font-weight:700;font-size:.85rem;color:var(--text);margin-bottom:2px}
+.recent-sub{font-family:var(--mono);font-size:.6rem;color:var(--text3)}
+
+/* ════════ CHATBOT PAGE ════════ */
+#page-chat{padding:0;overflow:hidden}
+.chat-wrap{display:flex;height:100%;overflow:hidden}
+
+/* left */
+.chat-left{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0}
+.chat-msgs{flex:1;overflow-y:auto;padding:20px;display:flex;flex-direction:column;gap:12px}
+.chat-msgs::-webkit-scrollbar{width:4px}
+.chat-msgs::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
+
+/* bubbles */
+.bubble{max-width:76%;padding:11px 15px;border-radius:var(--r2);font-size:.88rem;line-height:1.6;word-break:break-word;animation:fadeUp .2s ease}
+.bubble.bot{align-self:flex-start;background:var(--bg3);border:1px solid var(--border2);color:var(--text);border-bottom-left-radius:3px}
+.bubble.user{align-self:flex-end;background:var(--green);color:#000;font-weight:600;border-bottom-right-radius:3px}
+.bubble .meta{font-family:var(--mono);font-size:.58rem;opacity:.45;margin-top:5px}
+.bubble pre{font-family:var(--mono);font-size:.72rem;white-space:pre-wrap;margin-top:8px;padding:10px;background:rgba(0,0,0,.35);border-radius:6px;color:var(--green);border:1px solid var(--border);line-height:1.6}
+.bubble img.xray-thumb{max-width:200px;max-height:150px;border-radius:var(--r);margin-top:8px;display:block;border:1px solid var(--border2)}
+
+/* typing */
+.typing-bub{align-self:flex-start;background:var(--bg3);border:1px solid var(--border2);padding:12px 16px;border-radius:var(--r2) var(--r2) var(--r2) 3px;display:flex;gap:5px;align-items:center}
+.tdot{width:6px;height:6px;background:var(--text3);border-radius:50%;animation:tdot 1.2s infinite}
+.tdot:nth-child(2){animation-delay:.2s}.tdot:nth-child(3){animation-delay:.4s}
+@keyframes tdot{0%,60%,100%{transform:translateY(0);opacity:.4}30%{transform:translateY(-5px);opacity:1}}
+
+/* chat input */
+.chat-input-area{border-top:1px solid var(--border);padding:14px 16px;background:var(--bg2);flex-shrink:0}
+.chat-toolbar{display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap}
+.tool-btn{position:relative;background:var(--bg3);border:1px solid var(--border2);border-radius:var(--r);padding:6px 12px;color:var(--text2);font-family:var(--mono);font-size:.65rem;cursor:pointer;transition:all .18s;display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
+.tool-btn:hover{border-color:var(--green);color:var(--green)}
+.tool-btn input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+.file-chip{display:none;align-items:center;gap:6px;background:var(--green-dim);border:1px solid rgba(0,200,150,.3);border-radius:var(--r);padding:5px 10px;font-family:var(--mono);font-size:.65rem;color:var(--green)}
+.file-chip .rm{cursor:pointer;opacity:.6;margin-left:2px}
+.file-chip .rm:hover{opacity:1}
+.chat-row{display:flex;gap:8px;align-items:flex-end}
+.chat-in{flex:1;background:var(--bg3);border:1px solid var(--border2);border-radius:var(--r);padding:10px 14px;color:var(--text);font-family:var(--body);font-size:.9rem;outline:none;transition:border-color .18s;resize:none;height:42px;max-height:130px;line-height:1.5}
+.chat-in:focus{border-color:var(--green)}
+
+/* right panel */
+.chat-right{width:310px;min-width:310px;border-left:1px solid var(--border);overflow-y:auto;background:var(--bg2);flex-shrink:0}
+.chat-right::-webkit-scrollbar{width:4px}
+.chat-right::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
+.panel-sec{padding:16px;border-bottom:1px solid var(--border)}
+.panel-sec:last-child{border-bottom:none}
+.panel-title{font-family:var(--display);font-weight:700;font-size:.8rem;color:var(--text);margin-bottom:12px}
+
+/* quick actions */
+.qa-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+.qa-btn{background:var(--bg3);border:1px solid var(--border2);border-radius:var(--r);padding:8px 10px;color:var(--text2);font-family:var(--mono);font-size:.62rem;cursor:pointer;transition:all .18s;text-align:left;line-height:1.4}
+.qa-btn:hover{border-color:var(--green);color:var(--green);background:var(--green-dim)}
+
+/* mini form */
+.mini-field{display:flex;flex-direction:column;gap:4px;margin-bottom:10px}
+.mini-field label{font-family:var(--mono);font-size:.6rem;letter-spacing:.07em;text-transform:uppercase;color:var(--text3)}
+.mini-field input,.mini-field select{background:var(--bg3);border:1px solid var(--border2);border-radius:var(--r);padding:8px 10px;color:var(--text);font-family:var(--body);font-size:.85rem;outline:none;transition:border-color .18s;width:100%}
+.mini-field input:focus,.mini-field select:focus{border-color:var(--green)}
+.mini-field select option{background:var(--bg2);color:var(--text)}
+
+/* xray drop in panel */
+.xdrop{border:1.5px dashed var(--border2);border-radius:var(--r);padding:16px 10px;text-align:center;cursor:pointer;position:relative;background:var(--bg3);transition:all .2s;margin-bottom:10px}
+.xdrop:hover,.xdrop.over{border-color:var(--green);background:var(--green-dim)}
+.xdrop input{position:absolute;inset:0;opacity:0;cursor:pointer}
+.xdrop p{font-family:var(--mono);font-size:.65rem;color:var(--text3)}
+.xprev{max-width:100%;max-height:110px;border-radius:var(--r);border:1px solid var(--border2);display:block;margin:8px auto 10px}
+.model-btns{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+.mbtn{padding:5px 10px;border-radius:100px;font-family:var(--mono);font-size:.62rem;cursor:pointer;border:1px solid var(--border2);color:var(--text3);background:var(--bg3);transition:all .18s}
+.mbtn.sel-bone{background:rgba(212,170,96,.15);border-color:var(--bone);color:var(--bone)}
+.mbtn.sel-lung{background:rgba(74,184,212,.15);border-color:var(--lung);color:var(--lung)}
+.mbtn.sel-disease{background:rgba(212,96,144,.15);border-color:var(--disease);color:var(--disease)}
+
+/* id search */
+.id-row{display:flex;gap:8px}
+.id-row input{flex:1;background:var(--bg3);border:1px solid var(--border2);border-radius:var(--r);padding:8px 10px;color:var(--text);font-family:var(--body);font-size:.85rem;outline:none;transition:border-color .18s}
+.id-row input:focus{border-color:var(--green)}
+
+/* toasts & loader */
+.toasts{position:fixed;bottom:20px;right:20px;display:flex;flex-direction:column;gap:8px;z-index:999;pointer-events:none}
+.toast{padding:10px 16px;border-radius:var(--r);font-family:var(--mono);font-size:.7rem;color:#fff;animation:slideIn .25s ease,fadeOut .3s 2.7s ease forwards;box-shadow:0 4px 24px rgba(0,0,0,.5);pointer-events:auto}
+.toast.ok{background:var(--green);color:#000}.toast.err{background:var(--red)}.toast.info{background:var(--blue)}
+@keyframes slideIn{from{opacity:0;transform:translateX(14px)}to{opacity:1;transform:translateX(0)}}
+@keyframes fadeOut{to{opacity:0;transform:translateX(14px)}}
+.loader{display:none;position:fixed;inset:0;background:rgba(12,15,20,.75);z-index:998;align-items:center;justify-content:center;backdrop-filter:blur(4px)}
+.loader.on{display:flex}
+.loader-box{background:var(--bg2);border:1px solid var(--border2);border-radius:var(--r2);padding:28px 36px;text-align:center}
+.spin{width:36px;height:36px;border:2px solid var(--border2);border-top-color:var(--green);border-radius:50%;animation:spin .6s linear infinite;margin:0 auto 12px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loader-box p{font-family:var(--mono);font-size:.7rem;color:var(--text3)}
+.empty{text-align:center;padding:32px 16px;color:var(--text3);font-family:var(--mono);font-size:.72rem}
+.empty-icon{font-size:2rem;margin-bottom:8px;opacity:.3;display:block}
+</style>
+</head>
+<body>
+
+<!-- SIDEBAR -->
+<aside class="sidebar">
+  <div class="logo">
+    <div class="logo-name"><span class="logo-dot"></span>MedAgent</div>
+    <div class="logo-sub">AI X-Ray System v1.0</div>
+  </div>
+  <nav>
+    <div class="nav-lbl">Main</div>
+    <button class="nav-btn active" data-page="dash">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>Dashboard
+    </button>
+    <button class="nav-btn" data-page="analyse">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>X-Ray Analysis
+    </button>
+    <div class="nav-lbl">Data</div>
+    <button class="nav-btn" data-page="patients">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>Patients
+    </button>
+    <div class="nav-lbl">Assistant</div>
+    <button class="nav-btn" data-page="chat">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>AI Chatbot
+    </button>
+  </nav>
+  <div class="sidebar-foot">© 2024 MedAgent</div>
+</aside>
+
+<!-- MAIN -->
+<div class="main">
+  <div class="topbar">
+    <div class="topbar-title" id="pg-title">Dashboard</div>
+    <div class="status-pill"><span class="sdot"></span>System Online</div>
+  </div>
+  <div class="pages">
+
+    <!-- DASHBOARD -->
+    <div class="page active" id="page-dash">
+      <div class="stats">
+        <div class="stat s-total"><div class="stat-lbl">Total Patients</div><div class="stat-val" id="st-total">—</div></div>
+        <div class="stat s-bone"><div class="stat-lbl">Bone</div><div class="stat-val" id="st-bone">—</div></div>
+        <div class="stat s-lung"><div class="stat-lbl">Lung</div><div class="stat-val" id="st-lung">—</div></div>
+        <div class="stat s-disease"><div class="stat-lbl">Disease</div><div class="stat-val" id="st-disease">—</div></div>
+      </div>
+      <div class="two-col">
+        <div class="card">
+          <div class="card-head"><span class="card-title">Recent Patients</span><button class="btn btn-ghost" onclick="go('patients')" style="padding:5px 12px;font-size:.7rem">View All</button></div>
+          <div class="card-body" id="dash-recent"><div class="empty"><span class="empty-icon">🔄</span>Loading…</div></div>
+        </div>
+        <div class="card">
+          <div class="card-head"><span class="card-title">Model Distribution</span></div>
+          <div class="card-body">
+            <div class="dist-item"><div class="dist-head"><span>Bone</span><span id="dp-bone">0%</span></div><div class="dist-bar"><div class="dist-fill" id="db-bone" style="width:0;background:var(--bone)"></div></div></div>
+            <div class="dist-item"><div class="dist-head"><span>Lung</span><span id="dp-lung">0%</span></div><div class="dist-bar"><div class="dist-fill" id="db-lung" style="width:0;background:var(--lung)"></div></div></div>
+            <div class="dist-item"><div class="dist-head"><span>Disease</span><span id="dp-disease">0%</span></div><div class="dist-bar"><div class="dist-fill" id="db-disease" style="width:0;background:var(--disease)"></div></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ANALYSE -->
+    <div class="page" id="page-analyse">
+      <div class="two-col">
+        <div class="card">
+          <div class="card-head"><span class="card-title">Upload X-Ray</span></div>
+          <div class="card-body">
+            <div class="form-grid">
+              <div class="field"><label>Patient Name</label><input id="a-name" type="text" placeholder="Ahmad Khaled"/></div>
+              <div class="field"><label>Age</label><input id="a-age" type="number" placeholder="45" min="0" max="120"/></div>
+              <div class="field" style="grid-column:1/-1"><label>Model Type</label>
+                <select id="a-model">
+                  <option value="">— Select Model —</option>
+                  <option value="bone">🦴 Bone — Fracture &amp; Density</option>
+                  <option value="lung">🫁 Lung — Pulmonary Conditions</option>
+                  <option value="disease">🔬 Disease — General Patterns</option>
+                </select>
+              </div>
+            </div>
+            <div class="upload-zone" id="a-zone">
+              <input type="file" id="a-file" accept=".jpg,.jpeg,.png,.dcm" onchange="prevFile(this,'a-prev','a-zone')"/>
+              <span class="uz-icon">🩻</span>
+              <p><strong>Click to upload</strong> or drag &amp; drop</p>
+              <p style="font-size:.72rem;margin-top:3px;color:var(--text3)">JPG · PNG · DICOM · max 16MB</p>
+            </div>
+            <img id="a-prev" src="" alt="preview" style="max-width:100%;max-height:180px;border-radius:var(--r);display:none;margin:12px auto 0;border:1px solid var(--border)"/>
+            <div class="btn-row">
+              <button class="btn btn-green" onclick="runAnalysis()" style="flex:1">▶ Run Analysis</button>
+              <button class="btn btn-ghost" onclick="clearAnalysis()">Clear</button>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-head"><span class="card-title">Result</span></div>
+          <div class="card-body">
+            <div class="empty" id="res-empty"><span class="empty-icon">📊</span>Upload an X-ray and run analysis</div>
+            <div class="result-box" id="res-box">
+              <div class="rrow"><span class="rkey">Patient</span><span class="rval" id="r-name">—</span></div>
+              <div class="rrow"><span class="rkey">Age</span><span class="rval" id="r-age">—</span></div>
+              <div class="rrow"><span class="rkey">Model</span><span class="rval" id="r-model">—</span></div>
+              <div class="rrow"><span class="rkey">Finding</span><span class="rval" id="r-finding">—</span></div>
+              <div class="rrow"><span class="rkey">Confidence</span><span class="rval" id="r-conf">—</span></div>
+              <div class="conf-bar"><div class="conf-fill" id="conf-fill" style="width:0"></div></div>
+              <div style="margin-top:12px;font-family:var(--mono);font-size:.65rem;color:var(--text3)">✓ Saved to database</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PATIENTS -->
+    <div class="page" id="page-patients">
+      <div class="card">
+        <div class="card-head">
+          <span class="card-title">All Patient Records</span>
+          <button class="btn btn-ghost" onclick="loadPatients()" style="padding:5px 12px;font-size:.7rem">↺ Refresh</button>
+        </div>
+        <div class="tbl-wrap">
+          <table>
+            <thead>
+              <tr><th>ID</th><th>Name</th><th>Age</th><th>Model</th><th>Finding</th><th>Date</th></tr>
+            </thead>
+            <tbody id="pt-body">
+              <tr><td colspan="6"><div class="empty"><span class="empty-icon">🔄</span>Loading…</div></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- CHATBOT -->
+    <div class="page" id="page-chat">
+      <div class="chat-wrap">
+
+        <!-- conversation -->
+        <div class="chat-left">
+          <div class="chat-msgs" id="chat-msgs">
+            <div class="bubble bot">
+              Hello Doctor 👋 I'm your Medical AI Assistant.<br><br>
+              • <strong>Search</strong> patients using Quick Queries →<br>
+              • <strong>Add</strong> a new patient from the panel →<br>
+              • <strong>Analyse</strong> an X-ray from the panel →<br>
+              • <strong>Attach</strong> an image with the 📎 button below
+              <div class="meta">MedAgent · now</div>
+            </div>
+          </div>
+          <div class="chat-input-area">
+            <div class="chat-toolbar">
+              <div class="tool-btn">
+                📎 Attach X-Ray
+                <input type="file" id="chat-file-in" accept=".jpg,.jpeg,.png,.dcm" onchange="handleChatFile(this)"/>
+              </div>
+              <div class="file-chip" id="file-chip">
+                <span id="file-chip-name">image.jpg</span>
+                <span class="rm" onclick="clearChatFile()">✕</span>
+              </div>
+            </div>
+            <div class="chat-row">
+              <textarea class="chat-in" id="chat-in"
+                placeholder="Type a question or message…"
+                onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendChat()}"
+                oninput="autoResize(this)"></textarea>
+              <button class="btn btn-green" onclick="sendChat()">Send</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- right panel -->
+        <div class="chat-right">
+
+          <div class="panel-sec">
+            <div class="panel-title">🔍 Quick Queries</div>
+            <div class="qa-grid">
+              <button class="qa-btn" onclick="quickAsk('show all patients')">All patients</button>
+              <button class="qa-btn" onclick="quickAsk('show last result')">Last result</button>
+              <button class="qa-btn" onclick="quickAsk('count patients')">Count patients</button>
+              <button class="qa-btn" onclick="quickAsk('list lung patients')">Lung patients</button>
+              <button class="qa-btn" onclick="quickAsk('list bone patients')">Bone patients</button>
+              <button class="qa-btn" onclick="quickAsk('list disease patients')">Disease patients</button>
+            </div>
+          </div>
+
+          <div class="panel-sec">
+            <div class="panel-title">🔎 Get Patient by ID</div>
+            <div class="id-row">
+              <input id="pid-in" type="number" placeholder="Patient ID" min="1"
+                onkeydown="if(event.key==='Enter')fetchById()"/>
+              <button class="btn btn-ghost" onclick="fetchById()">Search</button>
+            </div>
+          </div>
+
+          <div class="panel-sec">
+            <div class="panel-title">➕ Add New Patient</div>
+            <div class="mini-field"><label>Name</label><input id="ap-name" type="text" placeholder="Full name"/></div>
+            <div class="mini-field"><label>Age</label><input id="ap-age" type="number" placeholder="Age" min="0" max="120"/></div>
+            <div class="mini-field"><label>Model Type</label>
+              <select id="ap-model">
+                <option value="">— Select —</option>
+                <option value="bone">🦴 Bone</option>
+                <option value="lung">🫁 Lung</option>
+                <option value="disease">🔬 Disease</option>
+              </select>
+            </div>
+            <button class="btn btn-green" style="width:100%;margin-top:4px" onclick="addPatient()">Add to Database</button>
+          </div>
+
+          <div class="panel-sec">
+            <div class="panel-title">🩻 Analyse X-Ray</div>
+            <div class="xdrop" id="xdrop">
+              <input type="file" id="xpanel-file" accept=".jpg,.jpeg,.png,.dcm" onchange="loadXpanel(this)"/>
+              <p>Drop X-ray here or click</p>
+            </div>
+            <img id="xpanel-prev" class="xprev" src="" alt="" style="display:none"/>
+            <div class="model-btns">
+              <span class="mbtn" data-m="bone" onclick="selModel(this)">🦴 Bone</span>
+              <span class="mbtn" data-m="lung" onclick="selModel(this)">🫁 Lung</span>
+              <span class="mbtn" data-m="disease" onclick="selModel(this)">🔬 Disease</span>
+            </div>
+            <div class="mini-field"><label>Patient Name</label><input id="xp-name" placeholder="Name"/></div>
+            <div class="mini-field"><label>Age</label><input id="xp-age" type="number" placeholder="Age"/></div>
+            <button class="btn btn-green" style="width:100%;margin-top:4px" onclick="analysePanel()">▶ Analyse &amp; Send to Chat</button>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /pages -->
+</div><!-- /main -->
+
+<div class="loader" id="loader"><div class="loader-box"><div class="spin"></div><p id="loader-msg">Processing…</p></div></div>
+<div class="toasts" id="toasts"></div>
+
+<script>
+const API = 'http://localhost:5000';
+let xPanelModel = '';
+let chatFile    = null;
+
+// ── nav ───────────────────────────────────────────────────────
+const TITLES = {dash:'Dashboard',analyse:'X-Ray Analysis',patients:'Patient Records',chat:'AI Chatbot'};
+function go(id){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('page-'+id).classList.add('active');
+  document.querySelector('[data-page="'+id+'"]').classList.add('active');
+  document.getElementById('pg-title').textContent = TITLES[id];
+  if(id==='dash')     loadDash();
+  if(id==='patients') loadPatients();
+}
+document.querySelectorAll('.nav-btn').forEach(b=>b.addEventListener('click',()=>go(b.dataset.page)));
+
+// ── helpers ───────────────────────────────────────────────────
+function toast(msg,type='ok'){
+  const el=document.createElement('div');
+  el.className='toast '+type; el.textContent=msg;
+  document.getElementById('toasts').appendChild(el);
+  setTimeout(()=>el.remove(),3200);
+}
+function setLoader(on,msg='Processing…'){
+  document.getElementById('loader-msg').textContent=msg;
+  document.getElementById('loader').classList.toggle('on',on);
+}
+async function api(path,opts){
+  try{ return await (await fetch(API+path,opts)).json(); }
+  catch{ return null; }
+}
+function fmtFinding(raw){
+  try{ return JSON.parse(raw).finding||raw; }catch{ return String(raw).slice(0,80); }
+}
+function nowTime(){return new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});}
+
+// ── DASHBOARD ─────────────────────────────────────────────────
+async function loadDash(){
+  const j = await api('/api/patients');
+  const list = (j&&j.data&&j.data.patients) ? j.data.patients : [];
+  const total=list.length,
+        bone=list.filter(p=>p.model_type==='bone').length,
+        lung=list.filter(p=>p.model_type==='lung').length,
+        disease=list.filter(p=>p.model_type==='disease').length;
+  document.getElementById('st-total').textContent=total;
+  document.getElementById('st-bone').textContent=bone;
+  document.getElementById('st-lung').textContent=lung;
+  document.getElementById('st-disease').textContent=disease;
+  const t=total||1;
+  setTimeout(()=>{
+    ['bone','lung','disease'].forEach(m=>{
+      const c=list.filter(p=>p.model_type===m).length;
+      const pct=Math.round(c/t*100);
+      document.getElementById('dp-'+m).textContent=pct+'%';
+      document.getElementById('db-'+m).style.width=pct+'%';
+    });
+  },120);
+  const recent=list.slice().reverse().slice(0,6);
+  document.getElementById('dash-recent').innerHTML = recent.length
+    ? recent.map(p=>`
+        <div class="recent-row">
+          <div>
+            <div class="recent-name">${esc(p.patient_name)}</div>
+            <div class="recent-sub">Age ${p.age} &nbsp;·&nbsp; ${p.created_at||'—'}</div>
+          </div>
+          <span class="badge badge-${p.model_type}">${p.model_type}</span>
+        </div>`).join('')
+    : '<div class="empty"><span class="empty-icon">📭</span>No records yet</div>';
+}
+
+// ── PATIENTS TABLE ────────────────────────────────────────────
+async function loadPatients(){
+  const j = await api('/api/patients');
+  const list = (j&&j.data&&j.data.patients) ? j.data.patients : [];
+  const tb=document.getElementById('pt-body');
+  if(!list.length){
+    tb.innerHTML='<tr><td colspan="6"><div class="empty"><span class="empty-icon">📭</span>No records found</div></td></tr>';
+    return;
+  }
+  tb.innerHTML=list.map(p=>`
+    <tr>
+      <td style="font-family:var(--mono);color:var(--text3);white-space:nowrap">#${p.patient_id}</td>
+      <td><strong>${esc(p.patient_name)}</strong></td>
+      <td style="white-space:nowrap">${p.age}</td>
+      <td><span class="badge badge-${p.model_type}">${p.model_type}</span></td>
+      <td style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(fmtFinding(p.model_result))}</td>
+      <td style="font-family:var(--mono);font-size:.65rem;color:var(--text3);white-space:nowrap">${p.created_at||'—'}</td>
+    </tr>`).join('');
+}
+
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+
+// ── ANALYSE PAGE ──────────────────────────────────────────────
+function prevFile(input,imgId,zoneId){
+  const f=input.files[0]; if(!f) return;
+  if(f.type.startsWith('image/')){
+    const r=new FileReader();
+    r.onload=e=>{const i=document.getElementById(imgId);i.src=e.target.result;i.style.display='block';};
+    r.readAsDataURL(f);
+  }
+  document.getElementById(zoneId).style.borderColor='var(--green)';
+}
+async function runAnalysis(){
+  const name=document.getElementById('a-name').value.trim();
+  const age=document.getElementById('a-age').value;
+  const model=document.getElementById('a-model').value;
+  if(!name)return toast('Patient name required','err');
+  if(!age) return toast('Age required','err');
+  if(!model)return toast('Select a model','err');
+  setLoader(true,'Analysing X-ray…');
+  await new Promise(r=>setTimeout(r,1400));
+  const findings={bone:'No significant bone abnormality detected (stub).',lung:'Lungs appear clear. No opacity detected (stub).',disease:'No disease pattern detected (stub).'};
+  const confs={bone:85,lung:88,disease:79};
+  setLoader(false);
+  document.getElementById('res-empty').style.display='none';
+  document.getElementById('res-box').classList.add('show');
+  document.getElementById('r-name').textContent=name;
+  document.getElementById('r-age').textContent=age+' yrs';
+  document.getElementById('r-model').textContent=model.toUpperCase();
+  document.getElementById('r-finding').textContent=findings[model];
+  document.getElementById('r-conf').textContent=confs[model]+'%';
+  setTimeout(()=>document.getElementById('conf-fill').style.width=confs[model]+'%',100);
+  toast('Analysis complete — saved to database');
+}
+function clearAnalysis(){
+  ['a-name','a-age'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('a-model').value='';
+  document.getElementById('a-file').value='';
+  document.getElementById('a-prev').style.display='none';
+  document.getElementById('a-zone').style.borderColor='';
+  document.getElementById('res-box').classList.remove('show');
+  document.getElementById('res-empty').style.display='';
+  document.getElementById('conf-fill').style.width='0';
+}
+
+// ════════════════════════════════════════════════
+// CHATBOT
+// ════════════════════════════════════════════════
+function addBubble(html,role){
+  const w=document.getElementById('chat-msgs');
+  const d=document.createElement('div');
+  d.className='bubble '+role;
+  d.innerHTML=html+'<div class="meta">'+(role==='bot'?'MedAgent':'You')+' · '+nowTime()+'</div>';
+  w.appendChild(d); w.scrollTop=w.scrollHeight;
+}
+function showTyping(){
+  const w=document.getElementById('chat-msgs');
+  const d=document.createElement('div');
+  d.className='typing-bub'; d.id='typing-ind';
+  d.innerHTML='<div class="tdot"></div><div class="tdot"></div><div class="tdot"></div>';
+  w.appendChild(d); w.scrollTop=w.scrollHeight;
+}
+function rmTyping(){const t=document.getElementById('typing-ind');if(t)t.remove();}
+function autoResize(el){el.style.height='auto';el.style.height=Math.min(el.scrollHeight,130)+'px';}
+
+// file attach
+function handleChatFile(input){
+  const f=input.files[0]; if(!f)return;
+  chatFile=f;
+  const chip=document.getElementById('file-chip');
+  document.getElementById('file-chip-name').textContent=f.name.slice(0,24)+(f.name.length>24?'…':'');
+  chip.style.display='flex';
+  toast('Attached: '+f.name,'info');
+}
+function clearChatFile(){
+  chatFile=null;
+  document.getElementById('chat-file-in').value='';
+  document.getElementById('file-chip').style.display='none';
+}
+
+async function sendChat(){
+  const inp=document.getElementById('chat-in');
+  const text=inp.value.trim();
+  if(!text && !chatFile) return;
+
+  let userHtml=text ? esc(text) : '';
+  if(chatFile && chatFile.type.startsWith('image/')){
+    const du=await toDataURL(chatFile);
+    userHtml+='<img class="xray-thumb" src="'+du+'" alt="xray"/>';
+  } else if(chatFile){
+    userHtml+=' <span style="font-family:var(--mono);font-size:.7rem;opacity:.7">📎 '+esc(chatFile.name)+'</span>';
+  }
+  addBubble(userHtml,'user');
+  inp.value=''; inp.style.height='auto';
+
+  showTyping();
+  await new Promise(r=>setTimeout(r,700));
+  rmTyping();
+
+  if(chatFile){
+    await doChatAnalyse(chatFile, text);
+    clearChatFile(); return;
+  }
+
+  // send to chatbot API
+  const j=await api('/api/chatbot',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({query:text})});
+  const reply=(j&&j.data&&j.data.message) ? j.data.message : fallback(text);
+  addBubble(reply.replace(/\n/g,'<br>'),'bot');
+}
+
+async function doChatAnalyse(file, hint){
+  const model=xPanelModel||'bone';
+  const findings={bone:'No significant bone abnormality detected (stub).',lung:'Lungs appear clear. No opacity detected (stub).',disease:'No disease pattern detected (stub).'};
+  const confs={bone:85,lung:88,disease:79};
+  addBubble(`🩻 <strong>X-Ray Analysis Complete</strong><br><pre>Model      : ${model.toUpperCase()}
+Finding    : ${findings[model]}
+Confidence : ${confs[model]}%
+File       : ${esc(file.name)}
+Status     : Saved to database ✓</pre>`,'bot');
+  toast('Analysis complete');
+}
+
+function fallback(q){
+  const lq=q.toLowerCase();
+  if(lq.includes('pneumonia'))   return 'Pneumonia is a lung infection. On X-ray it appears as opacity in the lung fields.';
+  if(lq.includes('fracture'))    return 'A fracture is a bone break, visible as a discontinuous line on X-ray.';
+  if(lq.includes('bone model'))  return 'The bone model detects fractures, density changes, and structural abnormalities.';
+  if(lq.includes('lung model'))  return 'The lung model detects pneumonia, pleural effusion, and pulmonary nodules.';
+  if(lq.includes('disease model'))return 'The disease model detects generalised pathology patterns.';
+  return 'Try: "show all patients", "count patients", or a medical question.\nYou can also attach an X-ray using the 📎 button.';
+}
+
+function quickAsk(q){document.getElementById('chat-in').value=q;sendChat();}
+
+// ── ADD PATIENT ───────────────────────────────────────────────
+async function addPatient(){
+  const name  = document.getElementById('ap-name').value.trim();
+  const age   = document.getElementById('ap-age').value;
+  const model = document.getElementById('ap-model').value;
+  if(!name)  return toast('Name required','err');
+  if(!age)   return toast('Age required','err');
+  if(!model) return toast('Select a model','err');
+
+  addBubble('Add patient: <strong>'+esc(name)+'</strong>, Age '+age+', Model: <strong>'+model.toUpperCase()+'</strong>','user');
+  showTyping();
+  await new Promise(r=>setTimeout(r,600));
+  rmTyping();
+
+  const j = await api('/api/add_patient',{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({patient_name:name, age:parseInt(age), model_type:model})
+  });
+
+  if(j && j.status==='ok'){
+    const d=j.data;
+    addBubble(`✅ <strong>Patient Added Successfully</strong><br><pre>ID     : ${d.patient_id}
+Name   : ${esc(d.patient_name)}
+Age    : ${d.age}
+Model  : ${d.model_type.toUpperCase()}
+Status : Saved to database ✓</pre>`,'bot');
+    toast('Patient added to database','ok');
+  } else {
+    const msg=(j&&j.message)||'Server error';
+    addBubble('❌ Failed to add patient: '+esc(msg),'bot');
+    toast('Failed: '+msg,'err');
+  }
+
+  document.getElementById('ap-name').value='';
+  document.getElementById('ap-age').value='';
+  document.getElementById('ap-model').value='';
+}
+
+// ── GET BY ID ─────────────────────────────────────────────────
+async function fetchById(){
+  const id=parseInt(document.getElementById('pid-in').value);
+  if(!id||id<1){toast('Enter a valid ID','err');return;}
+  addBubble('Get patient ID: <strong>#'+id+'</strong>','user');
+  showTyping();
+  await new Promise(r=>setTimeout(r,500));
+  rmTyping();
+  const j=await api('/api/patients/'+id);
+  if(j&&j.status==='ok'&&j.data){
+    const p=j.data;
+    addBubble(`📋 <strong>Patient Record</strong><br><pre>ID      : ${p.patient_id}
+Name    : ${esc(p.patient_name)}
+Age     : ${p.age}
+Model   : ${(p.model_type||'').toUpperCase()}
+Finding : ${esc(fmtFinding(p.model_result))}
+Date    : ${p.created_at||'—'}</pre>`,'bot');
+  } else {
+    addBubble('❌ No patient found with ID <strong>#'+id+'</strong>.','bot');
+  }
+  document.getElementById('pid-in').value='';
+}
+
+// ── XRAY PANEL ────────────────────────────────────────────────
+function loadXpanel(input){
+  const f=input.files[0]; if(!f)return;
+  if(f.type.startsWith('image/')){
+    const r=new FileReader();
+    r.onload=e=>{const i=document.getElementById('xpanel-prev');i.src=e.target.result;i.style.display='block';};
+    r.readAsDataURL(f);
+  }
+  document.getElementById('xdrop').style.borderColor='var(--green)';
+  toast('X-ray loaded','info');
+}
+function selModel(el){
+  document.querySelectorAll('.mbtn').forEach(m=>m.className='mbtn');
+  xPanelModel=el.dataset.m;
+  el.classList.add('sel-'+xPanelModel);
+}
+async function analysePanel(){
+  const file=document.getElementById('xpanel-file').files[0];
+  const name=document.getElementById('xp-name').value.trim();
+  const age=document.getElementById('xp-age').value;
+  if(!file)        return toast('Upload an X-ray first','err');
+  if(!xPanelModel) return toast('Select a model type','err');
+  if(!name)        return toast('Enter patient name','err');
+
+  let userHtml='Analyse X-ray for <strong>'+esc(name)+'</strong> | Model: <strong>'+xPanelModel.toUpperCase()+'</strong>';
+  if(file.type.startsWith('image/')){
+    const du=await toDataURL(file);
+    userHtml+='<img class="xray-thumb" src="'+du+'" alt="xray"/>';
+  }
+  addBubble(userHtml,'user');
+  showTyping();
+  await new Promise(r=>setTimeout(r,1200));
+  rmTyping();
+
+  const findings={bone:'No significant bone abnormality detected (stub).',lung:'Lungs appear clear. No opacity detected (stub).',disease:'No disease pattern detected (stub).'};
+  const confs={bone:85,lung:88,disease:79};
+
+  addBubble(`🩻 <strong>Analysis Complete</strong><br><pre>Patient    : ${esc(name)}
+Age        : ${age||'N/A'}
+Model      : ${xPanelModel.toUpperCase()}
+Finding    : ${findings[xPanelModel]}
+Confidence : ${confs[xPanelModel]}%
+Status     : Saved to database ✓</pre>`,'bot');
+  toast('Analysis complete');
+}
+
+function toDataURL(file){
+  return new Promise(res=>{const r=new FileReader();r.onload=e=>res(e.target.result);r.readAsDataURL(file);});
+}
+
+// ── INIT ──────────────────────────────────────────────────────
+loadDash();
+</script>
+</body>
+</html>

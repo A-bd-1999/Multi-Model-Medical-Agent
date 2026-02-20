@@ -1,1 +1,0 @@
-# General disease model placeholder
